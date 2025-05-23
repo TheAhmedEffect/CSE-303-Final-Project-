@@ -1,93 +1,74 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.model_selection import learning_curve
 from sklearn.metrics import classification_report, roc_auc_score, roc_curve
-
 
 file_path = r"C:\Users\ASUS\Downloads\LoanData_Preprocessed_v1.2.csv"
 df = pd.read_csv(file_path)
 
-# Dataset Overview
-print(df.info())
-print(df.head())
+print(df.info())  # Check data structure and types
+print(df.head())  # Display the first 5 rows
 
-# Statistical Summary (e.g Mean,Median)
 summary_stats = df.describe()
-print(summary_stats)
+print(summary_stats)  # Statistical summary of numeric columns
 
-# Class Balance Analyzes the proportion of loans that defaulted vs. those that didn’t.
 class_balance = df['default'].value_counts(normalize=True) * 100
 print("\nClass Balance (%):\n", class_balance)
 
-# Correlation Analysis Calculates correlations between numerical variables to identify relationships.
 correlation_matrix = df.corr()
 
-# Visualizations
-#Sets a white grid style for better readability.
-#Creates a 2x2 grid of plots with a figure size of 14x10 inches.
 sns.set(style="whitegrid")
 fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
-# Class Balance Plot
-#Count plot to show how many loans are in default (1) vs. not (0).
 sns.countplot(x='default', data=df, ax=axes[0, 0], palette='Set2')
 axes[0, 0].set_title('Loan Default Distribution')
 axes[0, 0].set_xlabel('Default (0 = No, 1 = Yes)')
 axes[0, 0].set_ylabel('Count')
 
-# Income Distribution
-#Histogram with a KDE curve to analyze the distribution of income.
-#Detects if the income distribution is skewed.
 sns.histplot(df['income'], kde=True, bins=30, ax=axes[0, 1], color='skyblue')
 axes[0, 1].set_title('Income Distribution')
 axes[0, 1].set_xlabel('Income (in thousands)')
 
-# Debt-to-Income Ratio Distribution
-#Examines how the debt-to-income ratio is distributed.
-#Higher ratios may indicate a higher default risk.
 sns.histplot(df['debtinc'], kde=True, bins=30, ax=axes[1, 0], color='salmon')
 axes[1, 0].set_title('Debt-to-Income Ratio Distribution')
 axes[1, 0].set_xlabel('Debt-to-Income Ratio')
 
-# Correlation Heatmap
-#Heatmap visualizing the correlation matrix.
 sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', ax=axes[1, 1])
 axes[1, 1].set_title('Correlation Matrix')
 
-#Adjusts subplot spacing to prevent overlap.
-#Displays all plots.
 plt.tight_layout()
 plt.show()
 
-# Data Preprocessing
 X = df.drop('default', axis=1)
 y = df['default']
 
-# Train-Test Split
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
-# Feature Scaling
-#Standardizes features by removing the mean and scaling to unit variance.
-#Prevents bias due to varying feature scales.
+print("Training Set Shape:", X_train.shape)
+print("Testing Set Shape:", X_test.shape)
+
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-print("Training Set Shape:", X_train_scaled.shape)
-print("Testing Set Shape:", X_test_scaled.shape)
+print("Training Set Shape (Scaled):", X_train_scaled.shape)
+print("Testing Set Shape (Scaled):", X_test_scaled.shape)
 
-#Predicts default (0 or 1) and probabilities for the test set.
 log_reg = LogisticRegression(random_state=42)
 log_reg.fit(X_train_scaled, y_train)
+
 y_pred_logreg = log_reg.predict(X_test_scaled)
 y_prob_logreg = log_reg.predict_proba(X_test_scaled)[:, 1]
 
-#Support Vector Machine.
-#Predicts default classes and probabilities.
+print("\nLogistic Regression Report:\n", classification_report(y_test, y_pred_logreg))
+print("ROC-AUC Score (Logistic Regression):", roc_auc_score(y_test, y_prob_logreg))
+
 svm_clf = SVC(probability=True, random_state=42)
 svm_clf.fit(X_train_scaled, y_train)
 
@@ -97,16 +78,6 @@ y_prob_svm = svm_clf.predict_proba(X_test_scaled)[:, 1]
 print("\nSVM Report:\n", classification_report(y_test, y_pred_svm))
 print("ROC-AUC Score (SVM):", roc_auc_score(y_test, y_prob_svm))
 
-
-#classification_report → Provides precision, recall, F1-score.
-#roc_auc_score → Measures the ability to distinguish between classes.
-print("\nLogistic Regression Report:\n", classification_report(y_test, y_pred_logreg))
-print("ROC-AUC Score (Logistic Regression):", roc_auc_score(y_test, y_prob_logreg))
-
-print("\nSVM Report:\n", classification_report(y_test, y_pred_svm))
-print("ROC-AUC Score (SVM):", roc_auc_score(y_test, y_prob_svm))
-
-#Plots the ROC curve to visualize model performance.
 plt.figure(figsize=(8, 6))
 fpr_logreg, tpr_logreg, _ = roc_curve(y_test, y_prob_logreg)
 fpr_svm, tpr_svm, _ = roc_curve(y_test, y_prob_svm)
@@ -119,3 +90,76 @@ plt.ylabel('True Positive Rate')
 plt.title('ROC Curve')
 plt.legend()
 plt.show()
+
+# %% [markdown]
+# ## 7️⃣ Overfitting / Underfitting Diagnostics
+
+# %%
+def plot_train_test_roc(model, X_tr, y_tr, X_te, y_te, name):
+    # get probabilities
+    p_tr = model.predict_proba(X_tr)[:,1]
+    p_te = model.predict_proba(X_te)[:,1]
+
+    # ROC curves
+    fpr_tr, tpr_tr, _ = roc_curve(y_tr, p_tr)
+    fpr_te, tpr_te, _ = roc_curve(y_te, p_te)
+
+    # AUC
+    auc_tr = roc_auc_score(y_tr, p_tr)
+    auc_te = roc_auc_score(y_te, p_te)
+    print(f"{name} AUC → Train: {auc_tr:.3f}  Test: {auc_te:.3f}")
+
+    # plot
+    plt.plot(fpr_tr, tpr_tr, linestyle='--', label=f'{name} (train)')
+    plt.plot(fpr_te, tpr_te, linestyle='-',  label=f'{name} (test)')
+
+plt.figure(figsize=(8,6))
+plot_train_test_roc(log_reg, X_train_scaled, y_train, X_test_scaled, y_test, 'Logistic')
+plot_train_test_roc(svm_clf, X_train_scaled, y_train, X_test_scaled, y_test, 'SVM')
+plt.plot([0,1],[0,1],'k--', alpha=0.5)
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Train vs. Test ROC Curves')
+plt.legend()
+plt.show()
+
+# %% [markdown]
+# ## 8️⃣ Learning Curves
+
+# %%
+def plot_learning_curve(estimator, X, y, cv=5, train_sizes=np.linspace(0.1,1.0,5)):
+    tr_sizes, tr_scores, cv_scores = learning_curve(
+        estimator, X, y,
+        cv=cv,
+        train_sizes=train_sizes,
+        scoring='roc_auc',
+        n_jobs=-1,
+        shuffle=True,
+        random_state=42
+    )
+    tr_mean = tr_scores.mean(axis=1)
+    cv_mean = cv_scores.mean(axis=1)
+    tr_std  = tr_scores.std(axis=1)
+    cv_std  = cv_scores.std(axis=1)
+
+    plt.fill_between(tr_sizes, tr_mean-tr_std, tr_mean+tr_std, alpha=0.1)
+    plt.fill_between(tr_sizes, cv_mean-cv_std, cv_mean+cv_std, alpha=0.1)
+    plt.plot(tr_sizes, tr_mean, 'o--', label='Train AUC')
+    plt.plot(tr_sizes, cv_mean, 'o-',  label='CV AUC')
+
+    plt.xlabel('Training Set Size')
+    plt.ylabel('ROC AUC')
+    plt.title(f'Learning Curve ({estimator.__class__.__name__})')
+    plt.legend()
+
+plt.figure(figsize=(12,5))
+plt.subplot(1,2,1)
+plot_learning_curve(LogisticRegression(random_state=42), X_train_scaled, y_train)
+
+plt.subplot(1,2,2)
+plot_learning_curve(SVC(probability=True, random_state=42), X_train_scaled, y_train)
+
+plt.tight_layout()
+plt.show()
+
+
