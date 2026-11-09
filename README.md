@@ -1,65 +1,42 @@
 # Loan Default Prediction
 
-This project analyzes and predicts loan defaults using machine learning techniques. The dataset is preprocessed, visualized, and used to train classification models such as Logistic Regression and Support Vector Machine (SVM). Performance is evaluated using classification metrics and ROC curves.
+Classification of loan default on a 485-row, 8-feature credit dataset, built for
+CSE-303 Statistics for Data Science. Python, pandas, scikit-learn.
 
-## Table of Contents
-- [Overview](#overview)
-- [Dataset](#dataset)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Visualization](#visualization)
-- [Machine Learning Models](#machine-learning-models)
-- [Performance Evaluation](#performance-evaluation)
-- [Results](#results)
-- [License](#license)
+Run `loan_default_prediction.ipynb`; the dataset sits beside it.
 
-## Overview
-This project provides an end-to-end analysis and modeling process for loan default prediction. It includes:
-- Data preprocessing (handling missing values, scaling features)
-- Exploratory Data Analysis (EDA)
-- Machine Learning model training and evaluation
-- Model performance visualization
+## What the notebook does
 
-## Dataset
-The dataset used is `LoanData_Preprocessed_v1.2.csv`, which contains information about loan applicants and their financial status. The target variable `default` indicates whether a loan was defaulted (1) or not (0).
-
-## Installation
-To run this project, ensure you have Python installed. Install the required dependencies using:
-```bash
-pip install pandas matplotlib seaborn scikit-learn
-```
-
-## Usage
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/loan-default-prediction.git
-cd loan-default-prediction
-```
-2. Run the script:
-```bash
-python loan_default_analysis.py
-```
-
-## Visualization
-The script generates multiple visualizations to understand data distribution and correlations:
-- Loan default class balance
-- Income distribution
-- Debt-to-income ratio distribution
-- Correlation heatmap
-
-## Machine Learning Models
-The project implements two machine learning models:
-1. **Logistic Regression** - A simple linear model for binary classification.
-2. **Support Vector Machine (SVM)** - A non-linear model with kernel functions for classification.
-
-## Performance Evaluation
-Model performance is assessed using:
-- **Classification Report** (Precision, Recall, F1-score)
-- **ROC-AUC Score** (Ability to distinguish between classes)
-- **ROC Curve** (Comparison of model performance visually)
+- **Load and inspect** — `read_csv`, `info`, `describe`, class balance, correlation matrix.
+- **Explore** — distributions of income, debt-to-income and credit debt against the
+  default flag (seaborn).
+- **Split** — 80/20 train/test, stratified on the target, fixed `random_state`.
+- **Scale** — `StandardScaler` fit on the training set only and applied to the test
+  set, so no test-set statistics leak into training.
+- **Model** — logistic regression and an RBF-kernel SVM, both with probability output.
+- **Evaluate** — classification report, ROC-AUC, and ROC curves for both models.
+- **Check for overfitting** — train AUC against test AUC for each model, plotted
+  together rather than reporting test performance alone.
 
 ## Results
-The script prints classification reports and generates an ROC curve comparing Logistic Regression and SVM models.
 
-## License
-This project is licensed under the MIT License. See the LICENSE file for details.
+| Model | Test ROC-AUC | Train AUC | Accuracy | Recall (default class) |
+|---|---|---|---|---|
+| Logistic regression | **0.873** | 0.845 | 0.80 | 0.38 |
+| SVM (RBF) | 0.811 | 0.874 | 0.77 | 0.21 |
+
+## What the results actually say
+
+Two things worth stating rather than hiding.
+
+The simpler model won. Logistic regression scored a higher test AUC than the SVM and
+showed no overfitting — its train AUC (0.845) was slightly *below* its test AUC
+(0.873). The SVM went the other way, 0.874 on train against 0.811 on test, which is
+the signature of a model fitting the training set harder than it generalises.
+
+The headline accuracy is misleading. At 80% accuracy the logistic model still recalls
+only 38% of actual defaults, because roughly three quarters of the dataset are
+non-defaults and accuracy rewards predicting the majority class. On this problem
+recall on the minority class is the number that matters, and neither model is good
+enough at it. The obvious next steps are class weighting or resampling, and moving
+the decision threshold off 0.5 to trade precision for recall deliberately.
